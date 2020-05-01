@@ -1,3 +1,8 @@
+import numpy as np
+import cv2
+import pandas as pd
+
+
 class Dataset():
     
     def __init__ (self, config, df, random_seed=5):
@@ -9,7 +14,7 @@ class Dataset():
         self.DATASET_IDXS = self.TRAINING_DATA_FRAME.ImageId.unique()
         self.DATASET_SIZE = self.DATASET_IDXS.shape[0]
         self.CURRENT_IDX=0
-        np..random.seed(random_seed)
+        np.random.seed(random_seed)
         np.random.shuffle(self.DATASET_IDXS)
         
     def get_image(self, image_id, resize=True):
