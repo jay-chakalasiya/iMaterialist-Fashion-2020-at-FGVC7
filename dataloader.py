@@ -3,7 +3,7 @@ import cv2
 import pandas as pd
 
 
-class Dataset():
+class Dataset_for_pytorch():
     def __init__ (self, config, df, random_seed=0):
         self.CONFIG = config
         self.TRAINING_DATA_PATH = self.CONFIG.DATA_PATH + '/train/'
@@ -20,9 +20,9 @@ class Dataset():
         if resize:
             return cv2.resize(img, 
                               (self.CONFIG.IMAGE_SIZE, self.CONFIG.IMAGE_SIZE), 
-                              interpolation = cv2.INTER_NEAREST)
+                              interpolation = cv2.INTER_NEAREST)/255
         else:
-            return img
+            return img/255
         
     def make_single_mask(self, encoded_string, height, width):
         splitted_string = np.array(list(map(int, encoded_string.split()))).reshape(-1,2)
@@ -46,21 +46,18 @@ class Dataset():
         while h[y2]==0:
             y2-=1
 
-        return np.array([x1, y1, x2-x1, y2-y1])
+        return np.array([x1, y1, x2, y2])
     
-    def get_mask_and_box(self, image_id, resize=True):
+    def get_ground_truth(self, image_id, resize=True):
+        
         query = self.TRAINING_DATA_FRAME[self.TRAINING_DATA_FRAME.ImageId==image_id]
         encoded_pixels = query.EncodedPixels
         class_ids = query.ClassId
         height, width = list(query.Height)[0], list(query.Width)[0]
         
-        if resize:
-            mask = np.zeros((self.CONFIG.OUTPUT_MASK_SIZE, self.CONFIG.OUTPUT_MASK_SIZE, self.CONFIG.NO_OF_CLASSES), 
-                            dtype=np.uint8)
-        else:
-            mask = np.zeros((height, width, self.CONFIG.NO_OF_CLASSES), 
-                            dtype=np.uint8)
-        boxes = np.zeros((self.CONFIG.NO_OF_CLASSES, 4))
+        masks=[]
+        labels=[]
+        boxes=[]
             
         for _, (encoded_pixel_str, class_id) in enumerate(zip(encoded_pixels, class_ids)):
             sub_mask = self.make_single_mask(encoded_pixel_str, height, width)
@@ -68,10 +65,13 @@ class Dataset():
                 sub_mask = cv2.resize(sub_mask, 
                                       (self.CONFIG.OUTPUT_MASK_SIZE, self.CONFIG.OUTPUT_MASK_SIZE), 
                                       interpolation=cv2.INTER_NEAREST)
-            mask[:,:,class_id] = sub_mask
-            boxes[class_id,:] = self.get_box(sub_mask)
-        return mask, boxes
-    
+            masks.append(sub_mask)
+            boxes.append(self.get_box(sub_mask))
+            labels.append(class_id)
+            
+        return {'boxes':np.array(boxes), 
+                'labels': np.array(labels), 
+                'masks': np.array(masks)}
     
     
     def sample_next_batch(self):
@@ -90,13 +90,12 @@ class Dataset():
     def get_next_batch(self, resize=True):
         batch_idxs, epoch_finish = self.sample_next_batch()
         print(batch_idxs)
-        train_images, test_images, bounding_boxes = [], [], []
+        train_images=[]
+        ground_truth=[]
         for image_id in batch_idxs:
             train_images.append(self.get_image(image_id, resize=resize))
-            mask, boxes = self.get_mask_and_box(image_id, resize=resize)
-            test_images.append(mask)
-            bounding_boxes.append(boxes)
-        return np.array(train_images), np.array(test_images), np.array(bounding_boxes), epoch_finish
+            ground_truth.append(self.get_ground_truth(image_id, resize=resize))
+        return train_images, ground_truth, epoch_finish
             
         
-        
+         
