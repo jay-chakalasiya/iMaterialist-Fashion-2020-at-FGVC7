@@ -66,8 +66,8 @@ class iMetDataset(object):
     def __getitem__(self, idx):
         # load images ad masks
         img_path = self.TRAINING_DATA_PATH + self.imgs[idx] + '.jpg'
-
-        img = torch.tensor(cv2.cvtColor( cv2.imread(self.TRAINING_DATA_PATH+image_id+'.jpg'), cv2.COLOR_BGR2RGB)/255)
+        print(img_path)
+        img = torch.tensor(cv2.cvtColor( cv2.imread(self.TRAINING_DATA_PATH+str(self.imgs[idx])+'.jpg'), cv2.COLOR_BGR2RGB)/255)
 
         target = self.get_ground_truth(self.imgs[idx])
 
