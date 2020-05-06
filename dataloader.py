@@ -6,9 +6,84 @@ import os
 import numpy as np
 import torch
 from PIL import Image
+import torch.utils.data
+
+class iMetDataset_2(torch.utils.data.Dataset):
+    def __init__(self, config, df, random_seed=0):       # transforms,
+        self.CONFIG = config
+        self.TRAINING_DATA_PATH = self.CONFIG.DATA_PATH + '/train/'
+        self.TRAINING_DATA_FRAME = df
+        #self.transforms = transforms
+        # load all image files, sorting them to
+        # ensure that they are aligned
+        self.imgs = self.TRAINING_DATA_FRAME.ImageId.unique()
+        np.random.seed(random_seed)
+        
+    def make_single_mask(self, encoded_string, height, width):
+        splitted_string = np.array(list(map(int, encoded_string.split()))).reshape(-1,2)
+        mask = np.zeros((height*width), dtype=np.uint8)
+        for start_indice, run_length in splitted_string:
+            start_indice-=1
+            mask[start_indice:start_indice+run_length] = 1
+        return mask.reshape((height, width), order='F')
+    
+    def get_box(self, mask):
+        w = np.sum(mask, axis=0)
+        h = np.sum(mask, axis=1)
+        x1, x2 = 0, len(w)-1
+        y1, y2 = 0, len(h)-1
+        while w[x1]==0:
+            x1+=1
+        while w[x2]==0:
+            x2-=1
+        while h[y1]==0:
+            y1+=1
+        while h[y2]==0:
+            y2-=1
+        return np.array([x1, y1, x2, y2])
+    
+    def get_ground_truth(self, image_id):
+        query = self.TRAINING_DATA_FRAME[self.TRAINING_DATA_FRAME.ImageId==image_id]
+        encoded_pixels = query.EncodedPixels
+        class_ids = query.ClassId
+        height, width = list(query.Height)[0], list(query.Width)[0]
+        
+        masks=[]
+        labels=[]
+        boxes=[]
+            
+        for _, (encoded_pixel_str, class_id) in enumerate(zip(encoded_pixels, class_ids)):
+            sub_mask = self.make_single_mask(encoded_pixel_str, height, width)
+            masks.append(sub_mask)
+            boxes.append(self.get_box(sub_mask))
+            labels.append(class_id)
+            
+        return {'boxes':np.array(boxes),
+                'labels': np.array(labels), 
+                'masks': np.array(masks)}
+    
+
+    def __getitem__(self, idx):
+        # load images ad masks
+        img_path = self.TRAINING_DATA_PATH + self.imgs[idx] + '.jpg'
+        img = np.array(cv2.cvtColor( cv2.imread(img_path), cv2.COLOR_BGR2RGB))/255
+        
+        target = self.get_ground_truth(self.imgs[idx])
+        
+        image_id = np.array([idx])
+        target["image_id"] = image_id
+
+    
+        #if self.transforms is not None:
+        #    img, target = self.transforms(img, target)
+
+        return img, target
+
+    def __len__(self):
+        return len(self.imgs)
 
 
-class iMetDataset(object):
+class iMetDataset(torch.utils.data.Dataset):
     def __init__(self, config, df, random_seed=0):       # transforms,
         self.CONFIG = config
         self.TRAINING_DATA_PATH = self.CONFIG.DATA_PATH + '/train/'
@@ -72,10 +147,7 @@ class iMetDataset(object):
         
         image_id = torch.tensor([idx])
         target["image_id"] = image_id
-        
-        boxes = target['boxes']
-        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-        target["area"] = area
+
     
         #if self.transforms is not None:
         #    img, target = self.transforms(img, target)
