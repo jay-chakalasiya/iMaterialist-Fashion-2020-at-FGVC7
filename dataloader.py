@@ -66,7 +66,10 @@ class iMetDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         # load images ad masks
         img_path = self.TRAINING_DATA_PATH + self.imgs[idx] + '.jpg'
-        img = torch.tensor(cv2.cvtColor( cv2.imread(img_path), cv2.COLOR_BGR2RGB)/255)
+        img = np.array(cv2.cvtColor( cv2.imread(img_path), cv2.COLOR_BGR2RGB)/255)
+        img = np.moveaxis(img, -1, 0)
+        print(img.shape)
+        img = torch.tensor(img, dtype=torch.float32)
 
         target = self.get_ground_truth(self.imgs[idx])
 
@@ -74,15 +77,17 @@ class iMetDataset(torch.utils.data.Dataset):
         iscrowd = torch.zeros((target['labels'].shape[0],), dtype=torch.int64)
         boxes = target['boxes']
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+        
+        print(img.shape, img_path, idx)
 
-        target["image_id"] = image_id
-        target["area"] = area
-        target["iscrowd"] = iscrowd
+        #target["image_id"] = image_id
+        #target["area"] = area
+        #target["iscrowd"] = iscrowd
 
         # if self.transforms is not None:
         #    img, target = self.transforms(img, target)
-        print("Shape of target[boxes,image_id,masks,labels,area,iscrowd]: "+str(target['boxes'].shape)+str(target['image_id'].shape)
-                +str(target['masks'].shape)+str(target['labels'].shape)+str(target['area'].shape)+','+str(target['iscrowd'].shape))
+        #print("Shape of target[boxes,image_id,masks,labels,area,iscrowd]: "+str(target['boxes'].shape)+str(target['image_id'].shape)
+               # +str(target['masks'].shape)+str(target['labels'].shape)+str(target['area'].shape)+','+str(target['iscrowd'].shape))
 
         return img, target
 
