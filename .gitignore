@@ -3,3 +3,4 @@ vision/*
 model/*
 .ipynb_checkpoints/*
 __pycache__/*
+models/
