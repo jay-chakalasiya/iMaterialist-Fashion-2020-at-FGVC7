@@ -7,4 +7,3 @@ and classification of every masked cloth over a set of attributes which includes
 Major Implementations
 - Mask RCNN
 - Mulit-Label Classification
-- 
